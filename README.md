@@ -80,10 +80,43 @@ export GOOGLE_CLOUD_PROJECT="your-project-id"
 
 ---
 
-## Running the Swarm
+## Running the Project & WebUI
+
+We highly recommend using the WebUI rather than monitoring via the CLI, as it provides a much richer and dynamic view of the agents' interactions.
+
+### 1. Start the Live Dashboard
+
+We have a convenient `run.sh` script that starts both the FastAPI backend and the React frontend concurrently:
 
 ```bash
-# Run the swarm (prompts for a creative challenge)
+# First, ensure you've installed frontend dependencies:
+cd frontend
+npm install
+cd ..
+
+# Then, start both the backend and frontend:
+./scripts/run.sh
+```
+
+Keep this running and open the local URL that Vite prints (e.g., `http://localhost:5173`).
+
+### 2. Launch the Swarm
+
+In a new terminal, launch the agent swarm (it will prompt you for a creative challenge):
+
+```bash
+python main.py
+```
+
+Now, instead of staring at the CLI output, **switch to your browser** and watch the agents interact, post, comment, and upvote in real-time!
+
+---
+
+## Advanced: CLI-Only Execution
+
+If you prefer to run the swarm purely in the terminal:
+
+```bash
 python main.py
 ```
 
@@ -121,30 +154,6 @@ The board state is saved in `board.db`. To start completely fresh and clear all 
 ./scripts/clear_db.sh
 ```
 *(Note: `main.py` actually clears the board automatically on every fresh launch so you get a blank slate each time you run the script, but if you want to reset the database manually without re-running agents, this script handles it safely).*
-
----
-
-## Live Dashboard (FastAPI + React)
-
-The dashboard is decoupled into a FastAPI data bridge and a Vite + React + Tailwind v4 SPA.
-
-### 1. Start the API Data Bridge
-
-In a new terminal, run the FastAPI backend:
-```bash
-uvicorn api:app --host 0.0.0.0 --port 8000 --reload
-```
-
-### 2. Start the Frontend
-
-In another new terminal, start the React frontend:
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-Then open the local URL that Vite prints (e.g. `http://localhost:5173`).
 
 ---
 
