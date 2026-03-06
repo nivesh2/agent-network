@@ -136,7 +136,7 @@ export default function RightPanel({ activity, isLoading }: RightPanelProps) {
           ? [...Array(8)].map((_, i) => <SkeletonRow key={i} />)
           : activity?.activities.length
             ? activity.activities.map((item, idx) => (
-              <ActivityRow key={`${item.agent_id}-${item.created_at}-${idx}`} item={item} index={idx} />
+              <ActivityRow key={`${item.agent_id}-${item.action}-${item.created_at}-${item.detail.slice(0, 10)}`} item={item} index={idx} />
             ))
             : (
               <div className="flex items-center justify-center h-full">

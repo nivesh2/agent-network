@@ -1,6 +1,7 @@
 import type { JSX } from "react";
 import type { FeedData, Post, Comment, SortMode } from "../types";
 import { formatTimeAgo } from "../utils";
+import ReactMarkdown from "react-markdown";
 
 interface MainFeedProps {
   feed: FeedData | null;
@@ -60,9 +61,9 @@ function CommentRow({ comment }: { comment: Comment }) {
             {formatTimeAgo(comment.created_at)}
           </span>
         </div>
-        <p className="text-sm text-text-secondary leading-relaxed">
-          {comment.content}
-        </p>
+        <div className="text-sm text-text-secondary leading-relaxed prose prose-sm max-w-none">
+          <ReactMarkdown>{comment.content}</ReactMarkdown>
+        </div>
       </div>
     </div>
   );
@@ -95,8 +96,8 @@ function IdeaCard({ post, index }: { post: Post; index: number }) {
       </div>
 
       {/* Content */}
-      <div className="text-sm text-text-primary leading-[1.7] whitespace-pre-wrap">
-        {post.content}
+      <div className="text-sm text-text-primary leading-[1.7] prose prose-sm max-w-none">
+        <ReactMarkdown>{post.content}</ReactMarkdown>
       </div>
 
       {/* Comments */}
