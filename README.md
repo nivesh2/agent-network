@@ -151,7 +151,7 @@ Edit `config.py` to tune the swarm:
 
 | Parameter | Default | Effect |
 |-----------|---------|--------|
-| `model` | `gemini-2.5-flash` | Switch to `gemini-2.5-pro` for better quality |
+| `model` | `gemini-3.1-flash-lite-preview` | Switch to `gemini-2.5-pro` for better quality |
 | `num_agents` | `5` | More agents → more diversity, more cost |
 | `num_rounds` | `10` | More rounds → deeper refinement |
 | `explore_ratio` | `0.4` | Higher → more novelty; lower → faster consensus |
