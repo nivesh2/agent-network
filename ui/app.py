@@ -3,6 +3,7 @@ import sqlite3
 import time
 import html
 import os
+import re
 
 # Resolve board.db relative to the project root (parent of the ui/ directory),
 # so this works regardless of which directory Streamlit is launched from.
@@ -34,6 +35,24 @@ def agent_badge(agent_id: str) -> str:
         f'text-transform: uppercase; letter-spacing: 0.5px;">'
         f'{agent_id}</span>'
     )
+
+
+_TAG_RE = re.compile(r'\[([0-9a-f]{8})\]')
+
+def linkify_tags(text: str) -> str:
+    """Replace [xxxxxxxx] post-ID references with clickable anchor links."""
+    def replace(m):
+        pid = m.group(1)
+        return (
+            f'<a href="#post-{pid}" '
+            f'style="background:#e0e7ff; color:#4f46e5; padding:2px 7px; '
+            f'border-radius:4px; font-size:0.8em; font-weight:700; '
+            f'font-family: \'SF Mono\', monospace; text-decoration:none; '
+            f'letter-spacing:0.3px;" '
+            f'title="Jump to post {pid}">'
+            f'&#x1F517;&nbsp;{pid}</a>'
+        )
+    return _TAG_RE.sub(replace, text)
 
 
 # ── Page setup ────────────────────────────────────────────────────────────────
@@ -122,10 +141,44 @@ st.markdown("""
         color: #0f172a;
         margin: 16px 0;
     }
-    /* Comment Blocks */
+    /* Comment Blocks — CSS checkbox toggle (no JS needed) */
+    .comments-section {
+        margin-top: 8px;
+    }
+    /* Hide the native checkbox */
+    .comments-section input[type="checkbox"] {
+        display: none;
+    }
+    /* Label acts as the toggle button */
+    .comments-toggle-label {
+        display: inline-block;
+        background: none;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        color: #64748b;
+        font-size: 0.78em;
+        font-weight: 600;
+        font-family: 'SF Mono', 'Roboto Mono', monospace;
+        cursor: pointer;
+        padding: 3px 10px;
+        margin-bottom: 8px;
+        transition: background 0.15s;
+        user-select: none;
+    }
+    .comments-toggle-label:hover {
+        background: #f1f5f9;
+        color: #334155;
+    }
+    /* When checkbox is checked → show the body; unchecked → hide */
+    .comments-section input[type="checkbox"]:checked ~ .comments-body {
+        display: block;
+    }
+    .comments-body {
+        display: none;
+    }
     .comment-block {
         border-left: 2px solid #e2e8f0;
-        margin: 16px 0 16px 20px;
+        margin: 12px 0 12px 20px;
         padding: 8px 16px;
         background: transparent;
     }
@@ -134,6 +187,13 @@ st.markdown("""
         margin-top: 8px;
         font-size: 1em;
         line-height: 1.5;
+    }
+    /* Thread-tag links inside comments */
+    .comment-text a {
+        text-decoration: none;
+    }
+    .comment-text a:hover {
+        opacity: 0.8;
     }
     /* Activity Feed Items */
     .activity-item {
@@ -245,15 +305,15 @@ while True:
 
                     badge = agent_badge(agent)
                     n_c = len(comments)
-                    comments_label = (
-                        f"{n_c} comment{'s' if n_c != 1 else ''}" if n_c else "no comments yet"
-                    )
 
                     # Escape HTML and convert newlines
                     safe_content = html.escape(content).replace('\n', '<br/>')
 
+                    chk_id = f"chk_{post_id}"
+                    toggle_label = f"▾ {n_c} comment{'s' if n_c != 1 else ''}" if n_c else ""
+
                     html_str = (
-                        f'<div class="post-card">'
+                        f'<div class="post-card" id="post-{post_id}">'
                         f'<div class="post-header">'
                         f'<span class="vote-count">▲ {votes}</span>'
                         f'{badge}'
@@ -261,20 +321,33 @@ while True:
                         f'</div>'
                         f'<div class="post-content">{safe_content}</div>'
                         f'<div class="post-meta">'
-                        f'{comments_label}'
-                        f'{" &middot; upvoted by " + voter_badges if voter_badges else ""}'
+                        f'{" upvoted by " + voter_badges if voter_badges else ""}'
                         f'</div>'
                     )
-                    for c_agent, c_content, c_ts in comments:
-                        safe_c_content = html.escape(c_content).replace('\n', '<br/>')
+
+                    if n_c > 0:
+                        # CSS checkbox hack: hidden checkbox + label = pure-CSS toggle
+                        # checked by default → comments visible on load
                         html_str += (
-                            f'<div class="comment-block">'
-                            f'{agent_badge(c_agent)}'
-                            f'<span class="post-meta"> &middot; {c_ts}</span>'
-                            f'<div class="comment-text">{safe_c_content}</div>'
-                            f'</div>'
+                            f'<div class="comments-section">'
+                            f'<input type="checkbox" id="{chk_id}" checked>'
+                            f'<label class="comments-toggle-label" for="{chk_id}">'
+                            f'{toggle_label}</label>'
+                            f'<div class="comments-body">'
                         )
-                    html_str += '</div>'
+                        for c_agent, c_content, c_ts in comments:
+                            safe_c_content = html.escape(c_content).replace('\n', '<br/>')
+                            linked_c_content = linkify_tags(safe_c_content)
+                            html_str += (
+                                f'<div class="comment-block">'
+                                f'{agent_badge(c_agent)}'
+                                f'<span class="post-meta"> &middot; {c_ts}</span>'
+                                f'<div class="comment-text">{linked_c_content}</div>'
+                                f'</div>'
+                            )
+                        html_str += '</div></div>'  # close comments-body + comments-section
+
+                    html_str += '</div>'  # close post-card
                     st.markdown(html_str, unsafe_allow_html=True)
 
             # ===== RIGHT: LIVE ACTIVITY LOG ====================================

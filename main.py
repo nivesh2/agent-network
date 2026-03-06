@@ -33,7 +33,18 @@ async def main():
     board = Board(config.db_path)
     await board.init()
 
-    agent_ids = [f"Agent-{i+1}" for i in range(config.num_agents)]
+    # Scandinavian agent personas
+    AGENT_PERSONAS = [
+        "Bjørn", "Sigrid", "Lars", "Astrid", "Erik",
+        "Ingrid", "Sven", "Freya", "Gunnar", "Maja",
+        "Ragnar", "Elsa", "Leif", "Karin", "Tor",
+    ]
+    agent_ids = [
+        AGENT_PERSONAS[i % len(AGENT_PERSONAS)]
+        if i < len(AGENT_PERSONAS)
+        else f"{AGENT_PERSONAS[i % len(AGENT_PERSONAS)]}-{i // len(AGENT_PERSONAS) + 1}"
+        for i in range(config.num_agents)
+    ]
 
     print(f"\n🚀 Launching {config.num_agents} agents × {config.num_rounds} rounds")
     print(f"   Model: {config.model}  |  DB: {config.db_path}\n")
