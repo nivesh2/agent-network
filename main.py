@@ -1,13 +1,20 @@
 import asyncio
 import os
 import sys
+from dotenv import load_dotenv
+from google import genai
 from board import Board
 from agent import run_agent
 from config import Config
 
+load_dotenv()  # Load GOOGLE_API_KEY from .env if present
+
 
 async def main():
     config = Config()
+
+    # Single shared client — created once, reused by every agent every round
+    client = genai.Client()
 
     # Allow overriding the model from CLI: python main.py --model gemini-2.5-pro
     if "--model" in sys.argv:
@@ -35,7 +42,7 @@ async def main():
 
     # Run all agents concurrently — true swarm, no coordination
     tasks = [
-        run_agent(agent_id, user_prompt, board, config)
+        run_agent(agent_id, user_prompt, board, config, client)
         for agent_id in agent_ids
     ]
     await asyncio.gather(*tasks)

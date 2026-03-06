@@ -2,26 +2,36 @@ import streamlit as st
 import sqlite3
 import time
 import html
+import os
 
-DB_PATH = "board.db"
+# Resolve board.db relative to the project root (parent of the ui/ directory),
+# so this works regardless of which directory Streamlit is launched from.
+DB_PATH = os.path.join(os.path.dirname(__file__), "..", "board.db")
 POLL_INTERVAL = 1.5  # seconds — fast enough to feel live
 
-# Deterministic agent colors — same agent always gets the same color
-AGENT_COLORS = [
-    "#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4", "#FFEAA7",
-    "#DDA0DD", "#98D8C8", "#F7DC6F", "#BB8FCE", "#85C1E9",
+# Deterministic agent styles
+AGENT_STYLES = [
+    {"bg": "#d1fae5", "color": "#059669"}, # emerald
+    {"bg": "#e0e7ff", "color": "#4f46e5"}, # indigo
+    {"bg": "#fce7f3", "color": "#db2777"}, # pink
+    {"bg": "#fef3c7", "color": "#d97706"}, # amber
+    {"bg": "#e1effe", "color": "#2563eb"}, # blue
+    {"bg": "#f3e8ff", "color": "#9333ea"}, # purple
+    {"bg": "#fee2e2", "color": "#dc2626"}, # red
 ]
 
 
-def agent_color(agent_id: str) -> str:
-    return AGENT_COLORS[hash(agent_id) % len(AGENT_COLORS)]
+def agent_style(agent_id: str) -> dict:
+    return AGENT_STYLES[hash(agent_id) % len(AGENT_STYLES)]
 
 
 def agent_badge(agent_id: str) -> str:
-    color = agent_color(agent_id)
+    style = agent_style(agent_id)
     return (
-        f'<span style="background:{color}; color:#000; padding:2px 8px; '
-        f'border-radius:12px; font-size:0.8em; font-weight:600;">'
+        f'<span style="background:{style["bg"]}; color:{style["color"]}; '
+        f'padding:4px 10px; border-radius:6px; font-size:0.75em; '
+        f'font-weight:700; font-family: \'SF Mono\', \'Roboto Mono\', monospace; '
+        f'text-transform: uppercase; letter-spacing: 0.5px;">'
         f'{agent_id}</span>'
     )
 
@@ -33,8 +43,10 @@ st.set_page_config(page_title="Agent Network — Live Feed", layout="wide")
 st.markdown("""
 <style>
     /* Global Background and Typography */
-    [data-testid="stAppViewContainer"] { 
+    [data-testid="stAppViewContainer"] {
         background-color: #f8fafc;
+        background-image: linear-gradient(#f1f5f9 1px, transparent 1px), linear-gradient(90deg, #f1f5f9 1px, transparent 1px);
+        background-size: 40px 40px;
         color: #0f172a;
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     }
@@ -44,111 +56,123 @@ st.markdown("""
     }
     /* Main Title */
     h2 {
-        color: #0f172a;
-        font-weight: 800;
-        letter-spacing: -0.5px;
+        color: #475569;
+        font-weight: 700;
+        font-family: 'SF Mono', 'Roboto Mono', 'Fira Code', monospace;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        font-size: 1.2em;
+        padding-top: 15px;
+        position: relative;
+    }
+    h2::before {
+        content: '';
+        position: absolute;
+        top: 0px;
+        left: 0;
+        width: 100%;
+        height: 4px;
+        background: linear-gradient(90deg, #ef4444 0%, #10b981 100%);
+        border-radius: 4px 4px 0 0;
     }
     /* Post Cards */
     .post-card {
         background: #ffffff;
         border: 1px solid #e2e8f0;
-        border-radius: 16px;
-        padding: 24px;
-        margin-bottom: 20px;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.025);
+        border-radius: 12px;
+        padding: 24px 28px;
+        margin-bottom: 24px;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.025);
         transition: transform 0.2s ease, box-shadow 0.2s ease;
     }
     .post-card:hover {
         transform: translateY(-2px);
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 10px 10px -5px rgba(0, 0, 0, 0.02);
     }
     /* Post Header */
     .post-header {
         display: flex;
         align-items: center;
-        gap: 12px;
+        gap: 16px;
         margin-bottom: 16px;
-        border-bottom: 1px solid #f1f5f9;
-        padding-bottom: 12px;
     }
     .vote-count {
-        font-size: 1.3em;
-        font-weight: 800;
-        color: #f43f5e;
-        min-width: 48px;
-        text-align: center;
-        background: #fff1f2;
-        padding: 6px 10px;
-        border-radius: 12px;
+        font-size: 1.1em;
+        font-weight: 700;
+        color: #94a3b8;
+        min-width: 40px;
+        text-align: right;
+        background: transparent;
+        padding: 0;
+        border-radius: 0;
     }
-    .post-meta { 
-        color: #64748b; 
-        font-size: 0.85em; 
-        font-weight: 500;
+    .post-meta {
+        color: #94a3b8;
+        font-size: 0.8em;
+        font-family: 'SF Mono', 'Roboto Mono', 'Fira Code', monospace;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
     }
     /* Post Content */
     .post-content {
-        font-size: 1.1em;
-        line-height: 1.6;
-        color: #334155;
+        font-size: 1.15em;
+        font-weight: 500;
+        line-height: 1.5;
+        color: #0f172a;
         margin: 16px 0;
     }
     /* Comment Blocks */
     .comment-block {
-        border-left: 3px solid #cbd5e1;
-        margin: 12px 0 12px 24px;
-        padding: 12px 16px;
-        background: #f8fafc;
-        border-radius: 0 12px 12px 0;
-        transition: border-color 0.2s ease, background-color 0.2s ease;
+        border-left: 2px solid #e2e8f0;
+        margin: 16px 0 16px 20px;
+        padding: 8px 16px;
+        background: transparent;
     }
-    .comment-block:hover {
-        border-color: #94a3b8;
-        background: #f1f5f9;
-    }
-    .comment-text { 
-        color: #475569; 
-        margin-top: 8px; 
-        font-size: 0.95em; 
+    .comment-text {
+        color: #475569;
+        margin-top: 8px;
+        font-size: 1em;
         line-height: 1.5;
     }
     /* Activity Feed Items */
     .activity-item {
-        padding: 12px;
-        border-bottom: 1px solid #e2e8f0;
+        padding: 16px;
+        border: 1px solid #e2e8f0;
         font-size: 0.9em;
         line-height: 1.5;
         background: #ffffff;
-        border-radius: 8px;
-        margin-bottom: 8px;
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-        transition: transform 0.1s ease;
+        border-radius: 12px;
+        margin-bottom: 12px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02);
     }
-    .activity-item:hover {
-        transform: translateX(2px);
-    }
-    .activity-preview { 
-        color: #64748b; 
-        margin-top: 6px; 
-        font-style: italic;
-        background: #f8fafc;
-        padding: 6px 10px;
-        border-radius: 6px;
+    .activity-preview {
+        color: #64748b;
+        margin-top: 8px;
+        font-style: normal;
+        background: transparent;
+        padding: 0;
         font-size: 0.95em;
     }
     /* Streamlit overrides */
     .stRadio > div > label > div[data-testid="stMarkdownContainer"] > p {
-        color: #475569 !important;
+        color: #64748b !important;
         font-weight: 600 !important;
-        font-size: 0.95em !important;
+        font-size: 0.85em !important;
+        text-transform: uppercase;
+        font-family: 'SF Mono', 'Roboto Mono', 'Fira Code', monospace;
     }
     [data-testid="stMetricValue"] {
         color: #0f172a;
-        font-weight: 800;
+        font-family: 'SF Mono', 'Roboto Mono', 'Fira Code', monospace;
+        font-weight: 700;
     }
     [data-testid="stMetricLabel"] {
-        color: #64748b;
+        color: #94a3b8;
         font-weight: 600;
+        text-transform: uppercase;
+        font-size: 0.8em;
+        font-family: 'SF Mono', 'Roboto Mono', 'Fira Code', monospace;
     }
 </style>
 """, unsafe_allow_html=True)

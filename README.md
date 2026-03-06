@@ -114,12 +114,12 @@ python main.py --model gemini-2.5-pro
 
 ### Starting Fresh / Clearing the Board
 
-The board state is saved in `board.db`. To start completely fresh and clear all ideas from previous runs, just delete it:
+The board state is saved in `board.db`. To start completely fresh and clear all ideas from previous runs, use the provided script:
 
 ```bash
-rm board.db
+./scripts/clear_db.sh
 ```
-*(Note: `main.py` actually does this automatically on every fresh launch so you get a blank slate each time you run the script, but if you want to reset the Streamlit dashboard without re-running agents, this is how).*
+*(Note: `main.py` actually clears the board automatically on every fresh launch so you get a blank slate each time you run the script, but if you want to reset the Streamlit dashboard manually without re-running agents, this script handles it safely).*
 
 ---
 
