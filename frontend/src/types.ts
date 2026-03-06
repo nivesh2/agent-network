@@ -1,4 +1,6 @@
 export interface SessionData {
+  session_id: string | null;
+  prompt: string | null;
   total_posts: number;
   total_comments: number;
   total_upvotes: number;
@@ -41,3 +43,11 @@ export interface ActivityData {
 }
 
 export type SortMode = "top" | "newest";
+
+export type ConnectionStatus = "connecting" | "connected" | "disconnected";
+
+export interface SessionListItem {
+  id: string;
+  prompt: string;
+  created_at: string;
+}
