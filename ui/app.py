@@ -4,6 +4,7 @@ import time
 import html
 import os
 import re
+import markdown as md_lib
 
 # Resolve board.db relative to the project root (parent of the ui/ directory),
 # so this works regardless of which directory Streamlit is launched from.
@@ -195,6 +196,60 @@ st.markdown("""
     .comment-text a:hover {
         opacity: 0.8;
     }
+    /* Markdown rendered content styling */
+    .post-content p, .comment-text p {
+        margin: 0 0 8px 0;
+    }
+    .post-content p:last-child, .comment-text p:last-child {
+        margin-bottom: 0;
+    }
+    .post-content h1, .post-content h2, .post-content h3,
+    .comment-text h1, .comment-text h2, .comment-text h3 {
+        margin: 12px 0 6px 0;
+        font-weight: 700;
+        color: #0f172a;
+    }
+    .post-content code, .comment-text code {
+        background: #f1f5f9;
+        border-radius: 4px;
+        padding: 1px 5px;
+        font-family: 'SF Mono', 'Roboto Mono', monospace;
+        font-size: 0.88em;
+        color: #0f172a;
+    }
+    .post-content pre, .comment-text pre {
+        background: #1e293b;
+        color: #e2e8f0;
+        border-radius: 8px;
+        padding: 12px 16px;
+        overflow-x: auto;
+        margin: 10px 0;
+        font-size: 0.85em;
+    }
+    .post-content pre code, .comment-text pre code {
+        background: transparent;
+        padding: 0;
+        color: inherit;
+    }
+    .post-content ul, .post-content ol,
+    .comment-text ul, .comment-text ol {
+        padding-left: 20px;
+        margin: 6px 0;
+    }
+    .post-content li, .comment-text li {
+        margin: 3px 0;
+    }
+    .post-content blockquote, .comment-text blockquote {
+        border-left: 3px solid #cbd5e1;
+        margin: 8px 0;
+        padding: 4px 12px;
+        color: #64748b;
+        font-style: italic;
+    }
+    .post-content strong, .comment-text strong {
+        font-weight: 700;
+        color: #0f172a;
+    }
     /* Activity Feed Items */
     .activity-item {
         padding: 16px;
@@ -354,8 +409,8 @@ with placeholder.container():
                 badge = agent_badge(agent)
                 n_c = len(comments)
 
-                # Escape HTML and convert newlines
-                safe_content = html.escape(content).replace('\n', '<br/>')
+                # Parse content as Markdown → HTML, then linkify [post-id] references
+                safe_content = linkify_tags(md_lib.markdown(content, extensions=['fenced_code', 'tables', 'nl2br']))
 
                 chk_id = f"chk_{post_id}"
                 toggle_label = f"▾ {n_c} comment{'s' if n_c != 1 else ''}" if n_c else ""
@@ -384,7 +439,7 @@ with placeholder.container():
                         f'<div class="comments-body">'
                     )
                     for c_agent, c_content, c_ts in comments:
-                        safe_c_content = html.escape(c_content).replace('\n', '<br/>')
+                        safe_c_content = md_lib.markdown(c_content, extensions=['fenced_code', 'tables', 'nl2br'])
                         linked_c_content = linkify_tags(safe_c_content)
                         html_str += (
                             f'<div class="comment-block">'
