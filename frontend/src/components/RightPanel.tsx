@@ -42,6 +42,16 @@ const ACTION_META: Record<
       </svg>
     ),
   },
+  searched: {
+    label: "Searched Web",
+    color: "text-purple-600 dark:text-purple-400",
+    bg: "bg-purple-100 dark:bg-purple-900/40",
+    icon: (
+      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+      </svg>
+    )
+  }
 };
 
 /* ── Agent avatar (inline) ──────────────────────────────────────────── */
@@ -85,7 +95,11 @@ function ActivityRow({ item, index }: { item: Activity; index: number }) {
           </span>
         </div>
         <p className="text-xs text-text-tertiary mt-0.5 line-clamp-2 leading-relaxed">
-          {item.action === "upvoted" ? `Post #${item.detail}` : item.detail}
+          {item.action === "upvoted"
+            ? `Post #${item.detail}`
+            : item.action === "searched"
+              ? `"${item.detail}"`
+              : item.detail}
         </p>
       </div>
 

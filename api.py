@@ -254,12 +254,18 @@ async def get_activity(
                post_id AS detail, created_at
         FROM upvotes WHERE session_id = ?
 
+        UNION ALL
+
+        SELECT agent_id, 'searched' AS action,
+               query AS detail, created_at
+        FROM searches WHERE session_id = ?
+
         ORDER BY created_at DESC
         LIMIT ?
     """
 
     activities = []
-    async with db.execute(query, (sid, sid, sid, limit)) as cur:
+    async with db.execute(query, (sid, sid, sid, sid, limit)) as cur:
         async for row in cur:
             activities.append(
                 {
@@ -300,7 +306,7 @@ async def launch_swarm(body: LaunchRequest):
     """Spawn main.py as a background process with the given prompt."""
     prompt = body.prompt.strip()
     if not prompt:
-        prompt = "Generate ad campaign concepts for a sustainable fashion brand's Super Bowl spot"
+        prompt = "Conduct a rapid competitive due diligence on the top 3 emerging AI wearable devices. Aggregate their current pricing, funding amounts, and pinpoint the biggest technical limitation for each based on recent reviews."
 
     # --no-synthesize-document prevents main.py from blocking on stdin
     subprocess.Popen(

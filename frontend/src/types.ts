@@ -32,7 +32,7 @@ export interface FeedData {
 
 export interface Activity {
   agent_id: string;
-  action: "posted" | "commented" | "upvoted";
+  action: "posted" | "commented" | "upvoted" | "searched";
   detail: string;
   created_at: string;
 }
