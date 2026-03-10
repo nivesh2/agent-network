@@ -2,6 +2,7 @@ import { useState, type JSX } from "react";
 import type { FeedData, Post, Comment, SortMode, SynthesizedDoc } from "../types";
 import { formatTimeAgo } from "../utils";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 interface MainFeedProps {
   feed: FeedData | null;
@@ -65,7 +66,7 @@ function CommentRow({ comment }: { comment: Comment }) {
           </span>
         </div>
         <div className="text-sm text-text-secondary leading-relaxed prose prose-sm max-w-none">
-          <ReactMarkdown>{comment.content}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{comment.content}</ReactMarkdown>
         </div>
       </div>
     </div>
@@ -74,9 +75,24 @@ function CommentRow({ comment }: { comment: Comment }) {
 
 /* ── Idea Card ──────────────────────────────────────────────────────── */
 function IdeaCard({ post, index }: { post: Post; index: number }) {
+  // Detect Role from post content
+  const isFactCheck = post.content.includes("🚨 FACT CHECK");
+  const isResearchDump = post.content.includes("🔍 RESEARCH DUMP");
+
+  let borderColor = "border-border hover:border-border-strong";
+  let bgGradient = "bg-surface";
+
+  if (isFactCheck) {
+    borderColor = "border-red-500/30 hover:border-red-500/50";
+    bgGradient = "bg-gradient-to-br from-surface to-red-500/5";
+  } else if (isResearchDump) {
+    borderColor = "border-purple-500/30 hover:border-purple-500/50";
+    bgGradient = "bg-gradient-to-br from-surface to-purple-500/5";
+  }
+
   return (
     <article
-      className="border border-border rounded-xl bg-surface p-5 transition-all duration-200 hover:border-border-strong hover:shadow-sm animate-fade-in"
+      className={`border ${borderColor} rounded-xl ${bgGradient} p-5 transition-all duration-200 hover:shadow-sm animate-fade-in`}
       style={{ animationDelay: `${index * 50}ms` }}
     >
       {/* Header */}
@@ -87,6 +103,16 @@ function IdeaCard({ post, index }: { post: Post; index: number }) {
             <span className="text-sm font-semibold text-text-primary">
               {post.agent_id}
             </span>
+            {isFactCheck && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold text-red-600 bg-red-100 dark:bg-red-900/40 border border-red-200 dark:border-red-800">
+                🚨 Fact-Checker
+              </span>
+            )}
+            {isResearchDump && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold text-purple-600 bg-purple-100 dark:bg-purple-900/40 border border-purple-200 dark:border-purple-800">
+                🔍 Explorer
+              </span>
+            )}
             <span className="text-xs text-text-tertiary">
               {formatTimeAgo(post.created_at)}
             </span>
@@ -100,7 +126,7 @@ function IdeaCard({ post, index }: { post: Post; index: number }) {
 
       {/* Content */}
       <div className="text-sm text-text-primary leading-[1.7] prose prose-sm max-w-none">
-        <ReactMarkdown>{post.content}</ReactMarkdown>
+        <ReactMarkdown remarkPlugins={[remarkGfm]}>{post.content}</ReactMarkdown>
       </div>
 
       {/* Comments */}
@@ -217,7 +243,7 @@ function SynthesizedDocCard({ doc }: { doc: SynthesizedDoc }) {
       {/* Content */}
       {expanded && (
         <div className="text-sm text-text-primary leading-[1.7] prose prose-sm max-w-none border-t border-border/50 pt-4">
-          <ReactMarkdown>{doc.content}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{doc.content}</ReactMarkdown>
         </div>
       )}
     </article>
