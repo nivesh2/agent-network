@@ -13,6 +13,21 @@ from config import Config
 
 load_dotenv()  # Load GOOGLE_API_KEY from .env if present
 
+class SimpleBarrier:
+    def __init__(self, parties: int):
+        self.parties = parties
+        self._count = 0
+        self._cond = asyncio.Condition()
+
+    async def wait(self):
+        async with self._cond:
+            self._count += 1
+            if self._count == self.parties:
+                self._count = 0
+                self._cond.notify_all()
+            else:
+                await self._cond.wait()
+
 
 async def main():
     config = Config()
@@ -32,7 +47,7 @@ async def main():
         idx = sys.argv.index("--prompt")
         user_prompt = sys.argv[idx + 1]
     else:
-        user_prompt = "Generate ad campaign concepts for a sustainable fashion brand's Super Bowl spot"
+        user_prompt = "Conduct a rapid competitive due diligence on the top 3 emerging AI wearable devices (e.g. Humane Pin, Rabbit R1, Limitless). Aggregate their current pricing, funding amounts, and pinpoint the biggest technical limitation for each based on recent reviews or facts."
 
     # Create a new session for this run — no longer wipes the DB
     session_id = str(uuid.uuid4())
@@ -66,9 +81,12 @@ async def main():
     print(f'   Challenge: "{user_prompt}"\n')
     print("─" * 60)
 
-    # Run all agents concurrently — true swarm, no coordination
+    # Run all agents concurrently with a two-phase barrier system
+    planning_barrier = SimpleBarrier(config.num_agents)
+    action_barrier = SimpleBarrier(config.num_agents)
+    intent_lock = asyncio.Lock()
     tasks = [
-        run_agent(agent_id, user_prompt, board, config, client)
+        run_agent(agent_id, user_prompt, board, config, client, planning_barrier, action_barrier, intent_lock)
         for agent_id in agent_ids
     ]
     await asyncio.gather(*tasks)
