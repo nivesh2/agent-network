@@ -49,18 +49,24 @@ async def main():
     else:
         user_prompt = "Conduct a rapid competitive due diligence on the top 3 emerging AI wearable devices (e.g. Humane Pin, Rabbit R1, Limitless). Aggregate their current pricing, funding amounts, and pinpoint the biggest technical limitation for each based on recent reviews or facts."
 
-    # Create a new session for this run — no longer wipes the DB
-    session_id = str(uuid.uuid4())
+    # Accept session_id from CLI if spawned by api.py
+    if "--session-id" in sys.argv:
+        idx = sys.argv.index("--session-id")
+        session_id = sys.argv[idx + 1]
+    else:
+        # Create a new session for this local run
+        session_id = str(uuid.uuid4())
 
     board = Board(config.db_path, session_id)
     await board.init()
 
-    # Register session in the DB
-    await board.db.execute(
-        "INSERT INTO sessions (id, prompt) VALUES (?, ?)",
-        (session_id, user_prompt)
-    )
-    await board.db.commit()
+    # Register session in the DB only if we generated it locally
+    if "--session-id" not in sys.argv:
+        await board.db.execute(
+            "INSERT INTO sessions (id, prompt) VALUES (?, ?)",
+            (session_id, user_prompt)
+        )
+        await board.db.commit()
 
     # Scandinavian agent personas
     AGENT_PERSONAS = [
@@ -75,18 +81,16 @@ async def main():
         for i in range(config.num_agents)
     ]
 
-    print(f"\n🚀 Launching {config.num_agents} agents × {config.num_rounds} rounds")
+    print("\n" + "─" * 60)
+    print(f"🚀 Launching {config.num_agents} agents × {config.num_rounds} rounds")
     print(f"   Model: {config.model}  |  DB: {config.db_path}")
-    print(f"   Session: {session_id}\n")
-    print(f'   Challenge: "{user_prompt}"\n')
-    print("─" * 60)
+    print(f"   Session: {session_id}")
+    print(f'   Challenge: "{user_prompt}"')
+    print("─" * 60 + "\n")
 
-    # Run all agents concurrently with a two-phase barrier system
-    planning_barrier = SimpleBarrier(config.num_agents)
-    action_barrier = SimpleBarrier(config.num_agents)
-    intent_lock = asyncio.Lock()
+    # Run all agents purely concurrently without any sleep timers
     tasks = [
-        run_agent(agent_id, user_prompt, board, config, client, planning_barrier, action_barrier, intent_lock)
+        run_agent(agent_id, user_prompt, board, config, client)
         for agent_id in agent_ids
     ]
     await asyncio.gather(*tasks)

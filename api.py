@@ -39,10 +39,17 @@ DB_PATH = str(PROJECT_ROOT / "board.db")
 db_connection: Optional[aiosqlite.Connection] = None
 
 
+from board import Board
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global db_connection
-    db_connection = await aiosqlite.connect(DB_PATH, uri=False)
+    # Ensure all tables exist before serving traffic
+    dummy_board = Board(DB_PATH, "init")
+    await dummy_board.init()
+    await dummy_board.close()
+
+    db_connection = await aiosqlite.connect(DB_PATH, timeout=30.0, uri=False)
     db_connection.row_factory = aiosqlite.Row
     await db_connection.execute("PRAGMA journal_mode=WAL")
     # Create synthesized_documents table if it doesn't exist
@@ -308,13 +315,25 @@ async def launch_swarm(body: LaunchRequest):
     if not prompt:
         prompt = "Conduct a rapid competitive due diligence on the top 3 emerging AI wearable devices. Aggregate their current pricing, funding amounts, and pinpoint the biggest technical limitation for each based on recent reviews."
 
+    import uuid
+    session_id = str(uuid.uuid4())
+
+    # Pre-register the session so the frontend SSE can immediately lock onto it
+    # even before main.py fully boots up
+    db = _db()
+    await db.execute(
+        "INSERT INTO sessions (id, prompt) VALUES (?, ?)",
+        (session_id, prompt)
+    )
+    await db.commit()
+
     # --no-synthesize-document prevents main.py from blocking on stdin
     subprocess.Popen(
-        [sys.executable, "main.py", "--prompt", prompt, "--no-synthesize-document"],
+        [sys.executable, "main.py", "--prompt", prompt, "--session-id", session_id, "--no-synthesize-document"],
         cwd=str(PROJECT_ROOT),
     )
 
-    return {"status": "launched", "prompt": prompt}
+    return {"status": "launched", "prompt": prompt, "session_id": session_id}
 
 
 class SynthesizeRequest(BaseModel):
@@ -357,7 +376,7 @@ async def synthesize_document(body: SynthesizeRequest):
 
     # Use a dedicated connection for the multi-step read queries to avoid
     # conflicting with the shared connection's pending cursors.
-    async with aiosqlite.connect(DB_PATH) as rdb:
+    async with aiosqlite.connect(DB_PATH, timeout=30.0) as rdb:
         rdb.row_factory = aiosqlite.Row
         await rdb.execute("PRAGMA journal_mode=WAL")
 

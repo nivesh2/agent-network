@@ -1,9 +1,13 @@
+import { useState } from "react";
 import { useAgora } from "./hooks/useAgora";
 import Sidebar from "./components/Sidebar";
 import MainFeed from "./components/MainFeed";
 import RightPanel from "./components/RightPanel";
+import LandingPage from "./components/LandingPage";
 
 export default function App() {
+  const [isDashboard, setIsDashboard] = useState(false);
+
   const {
     session,
     feed,
@@ -15,10 +19,23 @@ export default function App() {
     setActiveSessionId,
     synthDoc,
     refreshSynthDoc,
+    clearData,
   } = useAgora();
 
+  const handleLaunch = (_: string, sessionId: string) => {
+    // Clear out the previous session's data right before sliding into the dashboard
+    clearData();
+    // Force the SSE stream to lock onto the newly generated backend session
+    setActiveSessionId(sessionId);
+    setIsDashboard(true);
+  };
+
+  if (!isDashboard) {
+    return <LandingPage onLaunch={handleLaunch} />;
+  }
+
   return (
-    <div className="flex min-h-screen bg-bg">
+    <div className="flex min-h-[100vh] bg-bg flex-1">
       <Sidebar
         session={session.data}
         isLoading={session.isLoading}

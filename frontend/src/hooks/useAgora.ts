@@ -12,6 +12,7 @@ export function useAgora() {
     setActiveSessionId,
     synthDoc,
     refreshSynthDoc,
+    clearData,
   } = useSSE();
 
   return {
@@ -25,5 +26,6 @@ export function useAgora() {
     setActiveSessionId,
     synthDoc,
     refreshSynthDoc,
+    clearData,
   };
 }

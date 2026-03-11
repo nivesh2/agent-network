@@ -9,7 +9,7 @@ class Board:
         self.db = None
 
     async def init(self):
-        self.db = await aiosqlite.connect(self.db_path)
+        self.db = await aiosqlite.connect(self.db_path, timeout=30.0)
         # WAL mode: allows concurrent reads during writes — critical for parallel agents
         await self.db.execute("PRAGMA journal_mode=WAL")
         await self.db.executescript("""
@@ -35,6 +35,7 @@ class Board:
             );
             CREATE TABLE IF NOT EXISTS upvotes (
                 session_id  TEXT REFERENCES sessions(id),
+                post_id     TEXT REFERENCES posts(id),
                 agent_id    TEXT NOT NULL,
                 created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 PRIMARY KEY (post_id, agent_id)
@@ -59,6 +60,11 @@ class Board:
                 agent_id    TEXT NOT NULL,
                 post_id     TEXT REFERENCES posts(id),
                 PRIMARY KEY (agent_id, post_id)
+            );
+            CREATE TABLE IF NOT EXISTS active_search_lock (
+                session_id  TEXT PRIMARY KEY REFERENCES sessions(id),
+                agent_id    TEXT NOT NULL,
+                created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         """)
 
@@ -130,6 +136,61 @@ class Board:
         )
         row = await cursor.fetchone()
         return (row and row[0] >= threshold)
+
+    async def acquire_search_lock(self, agent_id: str) -> bool:
+        """Attempt to acquire the global search lock for this session. Returns True if successful."""
+        try:
+            # Check if anyone currently holds the lock for this session
+            cursor = await self.db.execute(
+                "SELECT agent_id, created_at FROM active_search_lock WHERE session_id = ?",
+                (self.session_id,)
+            )
+            row = await cursor.fetchone()
+            if row is not None:
+                holding_agent = row[0]
+                created_at_str = row[1]
+                print(f"  [LOCK DIAGNOSTIC] {agent_id} sees lock held by {holding_agent} since {created_at_str}")
+                
+                # Parse created_at to check if it's a stale lock (older than 30s)
+                # SQLite CURRENT_TIMESTAMP is 'YYYY-MM-DD HH:MM:SS' in UTC
+                from datetime import datetime
+                try:
+                    created_at = datetime.strptime(created_at_str, "%Y-%m-%d %H:%M:%S")
+                    if (datetime.utcnow() - created_at).total_seconds() > 30:
+                        # Stale lock: delete it and let someone else take over
+                        await self.db.execute("DELETE FROM active_search_lock WHERE session_id = ?", (self.session_id,))
+                        await self.db.commit()
+                        row = None # Proceed to grab it below
+                except Exception:
+                    pass
+
+                if row is not None:
+                    # Lock is indeed actively held
+                    if holding_agent == agent_id:
+                         # We somehow hold it (e.g. from a previous retry)
+                         return True
+                    return False
+
+            # No one has it, try to insert
+            await self.db.execute(
+                "INSERT INTO active_search_lock (session_id, agent_id) VALUES (?, ?)",
+                (self.session_id, agent_id)
+            )
+            await self.db.commit()
+            print(f"  [LOCK DIAGNOSTIC] {agent_id} **ACQUIRED** lock.")
+            return True
+        except Exception as e:
+            # Catch PRIMARY KEY violation if another agent inserted right after our SELECT
+            print(f"  [LOCK DIAGNOSTIC] {agent_id} failed to insert lock due to exception: {e}")
+            return False
+
+    async def release_search_lock(self, agent_id: str):
+        """Release the global search lock."""
+        await self.db.execute(
+            "DELETE FROM active_search_lock WHERE session_id = ? AND agent_id = ?",
+            (self.session_id, agent_id)
+        )
+        await self.db.commit()
 
     # ── Reads ─────────────────────────────────────────────────────────────────
 
@@ -205,6 +266,18 @@ class Board:
             {"id": r[0], "agent_id": r[1], "content": r[2], "created_at": r[3]}
             for r in await cursor.fetchall()
         ]
+
+    async def get_post(self, post_id: str):
+        """Fetch a single post by ID."""
+        cursor = await self.db.execute(
+            "SELECT id, agent_id, content, created_at FROM posts "
+            "WHERE id = ? AND session_id = ?",
+            (post_id, self.session_id)
+        )
+        row = await cursor.fetchone()
+        if not row:
+            return None
+        return {"id": row[0], "agent_id": row[1], "content": row[2], "created_at": row[3]}
 
     async def get_results(self, top_k: int = 3) -> list[dict]:
         """Final output: top-k posts with their full comment threads."""

@@ -1,5 +1,5 @@
-import { useState, type JSX } from "react";
-import type { FeedData, Post, Comment, SortMode, SynthesizedDoc } from "../types";
+import { useState } from "react";
+import type { FeedData, Post, SortMode, SynthesizedDoc } from "../types";
 import { formatTimeAgo } from "../utils";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -14,148 +14,109 @@ interface MainFeedProps {
   onSynthesized: () => Promise<void>;
 }
 
-/* ── Agent Avatar ───────────────────────────────────────────────────── */
-const AGENT_COLORS = [
-  "#374151", "#6b7280", "#1f2937", "#4b5563",
-  "#111827", "#9ca3af", "#334155", "#64748b",
-];
+// Custom Markdown component to highlight @mentions and post tags
+const MarkdownTextWithMentions = ({ children }: { children: React.ReactNode }) => {
+  if (typeof children !== "string") {
+    return <>{children}</>;
+  }
 
-function agentColor(id: string): string {
-  let hash = 0;
-  for (const ch of id) hash = ch.charCodeAt(0) + ((hash << 5) - hash);
-  return AGENT_COLORS[Math.abs(hash) % AGENT_COLORS.length];
-}
+  // Split by @mention pattern (e.g. @Astrid, @agent-1) or post [id] pattern
+  const parts = children.split(/(@[a-zA-Z0-9_-]+|post \[[a-fA-F0-9]+\])/gi);
 
-function AgentAvatar({ agentId, size = "md" }: { agentId: string; size?: "sm" | "md" }) {
-  const dim = size === "sm" ? "h-6 w-6 text-[10px]" : "h-8 w-8 text-xs";
   return (
-    <span
-      className={`${dim} rounded-full flex items-center justify-center text-white font-bold shrink-0`}
-      style={{ backgroundColor: agentColor(agentId) }}
-    >
-      {agentId.charAt(0).toUpperCase()}
-    </span>
+    <>
+      {parts.map((part, i) => {
+        if (part.startsWith("@")) {
+          return (
+            <span key={i} className="text-accent font-bold bg-accent/10 px-1 rounded-sm">
+              {part}
+            </span>
+          );
+        } else if (part.toLowerCase().startsWith("post [")) {
+          return (
+            <span key={i} className="text-orange-400 font-bold bg-orange-400/10 px-1 rounded-sm">
+              {part}
+            </span>
+          );
+        }
+        return <span key={i}>{part}</span>;
+      })}
+    </>
   );
-}
+};
 
-/* ── Upvote Badge ───────────────────────────────────────────────────── */
-function UpvoteBadge({ count }: { count: number }) {
-  if (count === 0) return null;
-  return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-accent-soft text-text-secondary text-xs font-medium">
-      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
-      </svg>
-      {count}
-    </span>
-  );
-}
+const renderers = {
+  p: ({ children }: any) => <p className="mb-4"><MarkdownTextWithMentions>{children}</MarkdownTextWithMentions></p>,
+  li: ({ children }: any) => <li><MarkdownTextWithMentions>{children}</MarkdownTextWithMentions></li>,
+};
 
-/* ── Comment Row ────────────────────────────────────────────────────── */
-function CommentRow({ comment }: { comment: Comment }) {
-  return (
-    <div className="flex gap-2.5 py-2.5 first:pt-0">
-      <AgentAvatar agentId={comment.agent_id} size="sm" />
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2 mb-0.5">
-          <span className="text-xs font-semibold text-text-primary">
-            {comment.agent_id}
-          </span>
-          <span className="text-[11px] text-text-tertiary">
-            {formatTimeAgo(comment.created_at)}
-          </span>
-        </div>
-        <div className="text-sm text-text-secondary leading-relaxed prose prose-sm max-w-none">
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{comment.content}</ReactMarkdown>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ── Idea Card ──────────────────────────────────────────────────────── */
-function IdeaCard({ post, index }: { post: Post; index: number }) {
-  // Detect Role from post content
+function CognitiveBlock({ post, index }: { post: Post; index: number }) {
   const isFactCheck = post.content.includes("🚨 FACT CHECK");
   const isResearchDump = post.content.includes("🔍 RESEARCH DUMP");
 
-  let borderColor = "border-border hover:border-border-strong";
-  let bgGradient = "bg-surface";
+  let indicatorColor = "bg-text-secondary";
+  let label = "Post";
 
   if (isFactCheck) {
-    borderColor = "border-red-500/30 hover:border-red-500/50";
-    bgGradient = "bg-gradient-to-br from-surface to-red-500/5";
+    indicatorColor = "bg-red-500";
+    label = "FACT_CHECK_ROUTINE";
   } else if (isResearchDump) {
-    borderColor = "border-purple-500/30 hover:border-purple-500/50";
-    bgGradient = "bg-gradient-to-br from-surface to-purple-500/5";
+    indicatorColor = "bg-purple-500";
+    label = "EXFIL_DATA_DUMP";
   }
 
   return (
     <article
-      className={`border ${borderColor} rounded-xl ${bgGradient} p-5 transition-all duration-200 hover:shadow-sm animate-fade-in`}
+      className="relative pl-6 py-2 mb-10 animate-fade-in group"
       style={{ animationDelay: `${index * 50}ms` }}
     >
-      {/* Header */}
-      <div className="flex items-start gap-3 mb-3">
-        <AgentAvatar agentId={post.agent_id} />
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-text-primary">
-              {post.agent_id}
-            </span>
-            {isFactCheck && (
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold text-red-600 bg-red-100 dark:bg-red-900/40 border border-red-200 dark:border-red-800">
-                🚨 Fact-Checker
-              </span>
-            )}
-            {isResearchDump && (
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold text-purple-600 bg-purple-100 dark:bg-purple-900/40 border border-purple-200 dark:border-purple-800">
-                🔍 Explorer
-              </span>
-            )}
-            <span className="text-xs text-text-tertiary">
-              {formatTimeAgo(post.created_at)}
-            </span>
-          </div>
-          <p className="text-xs text-text-tertiary mt-0.5 font-mono">
-            #{post.id}
-          </p>
-        </div>
-        <UpvoteBadge count={post.upvotes} />
+      {/* Left indicator line */}
+      <div className={`absolute left-0 top-0 bottom-0 w-0.5 ${indicatorColor} opacity-50 group-hover:opacity-100 transition-opacity`} />
+
+      {/* Header telemetry */}
+      <div className="flex flex-wrap items-center gap-3 mb-4 font-mono text-[10px] tracking-widest uppercase text-text-tertiary">
+        <span className="text-accent font-bold">@{post.agent_id}</span>
+        <span className="border border-border px-1.5 py-0.5 rounded-sm">{label}</span>
+        <span className="opacity-50">T-{formatTimeAgo(post.created_at)}</span>
+        <span className="opacity-50">SIG:{post.upvotes}</span>
+        <span className="opacity-50">ID:{post.id.slice(0, 8)}</span>
       </div>
 
-      {/* Content */}
-      <div className="text-sm text-text-primary leading-[1.7] prose prose-sm max-w-none">
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>{post.content}</ReactMarkdown>
+      {/* Core payload */}
+      <div className="text-sm font-sans text-text-primary leading-[1.7] prose prose-sm prose-invert max-w-none">
+        <ReactMarkdown remarkPlugins={[remarkGfm]} components={renderers}>{post.content}</ReactMarkdown>
       </div>
 
-      {/* Comments */}
+      {/* Sub-routines (Comments) */}
       {post.comments.length > 0 && (
-        <div className="mt-4 pt-3.5 border-t border-border">
-          <p className="text-[11px] font-semibold tracking-widest uppercase text-text-tertiary mb-2.5">
-            {post.comments.length} {post.comments.length === 1 ? "Comment" : "Comments"}
-          </p>
-          <div className="space-y-0 divide-y divide-border/50">
-            {post.comments.map((c) => (
-              <CommentRow key={c.id} comment={c} />
-            ))}
+        <div className="mt-6 pt-4 border-t border-border/30 space-y-4">
+          <div className="font-mono text-[9px] tracking-widest uppercase text-text-tertiary mb-3">
+            -- Linked Comments ({post.comments.length}) --
           </div>
+          {post.comments.map((c) => (
+            <div key={c.id} className="pl-4 border-l border-border/30 flex flex-col gap-1">
+              <div className="flex items-center gap-2 font-mono text-[10px] tracking-widest uppercase text-text-tertiary">
+                <span className="text-accent font-semibold">{c.agent_id}</span>
+                <span className="opacity-50">{formatTimeAgo(c.created_at)}</span>
+              </div>
+              <div className="text-xs font-sans text-text-secondary leading-relaxed prose prose-sm prose-invert max-w-none">
+                <ReactMarkdown remarkPlugins={[remarkGfm]} components={renderers}>{c.content}</ReactMarkdown>
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </article>
   );
 }
 
-/* ── Skeleton Card ──────────────────────────────────────────────────── */
-function SkeletonCard() {
+function SkeletonBlock() {
   return (
-    <div className="border border-border rounded-xl bg-surface p-5">
+    <div className="relative pl-6 py-2 mb-10">
+      <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-border" />
       <div className="flex items-center gap-3 mb-4">
-        <div className="skeleton h-8 w-8 rounded-full" />
-        <div className="flex-1 space-y-2">
-          <div className="skeleton h-4 w-28" />
-          <div className="skeleton h-3 w-16" />
-        </div>
+        <div className="skeleton h-3 w-16" />
+        <div className="skeleton h-3 w-24" />
       </div>
       <div className="space-y-2">
         <div className="skeleton h-3 w-full" />
@@ -166,91 +127,21 @@ function SkeletonCard() {
   );
 }
 
-/* ── Sort Toggle ────────────────────────────────────────────────────── */
-function SortToggle({ sortMode, setSortMode }: { sortMode: SortMode; setSortMode: (s: SortMode) => void }) {
-  const options: { value: SortMode; label: string; icon: JSX.Element }[] = [
-    {
-      value: "top",
-      label: "Top",
-      icon: (
-        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-        </svg>
-      ),
-    },
-    {
-      value: "newest",
-      label: "Newest",
-      icon: (
-        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-      ),
-    },
-  ];
-
+function SynthCard({ doc }: { doc: SynthesizedDoc }) {
   return (
-    <div className="flex rounded-lg border border-border overflow-hidden">
-      {options.map((opt) => (
-        <button
-          key={opt.value}
-          onClick={() => setSortMode(opt.value)}
-          className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium transition-all duration-150 cursor-pointer ${sortMode === opt.value
-            ? "bg-accent text-white"
-            : "bg-surface text-text-secondary hover:bg-surface-hover"
-            }`}
-        >
-          {opt.icon}
-          {opt.label}
-        </button>
-      ))}
+    <div className="mb-10 p-6 border border-accent/30 bg-accent/5 rounded-xl font-mono">
+      <div className="flex items-center gap-3 mb-4 text-[10px] tracking-widest uppercase text-accent font-bold">
+        <span className="w-2 h-2 bg-accent rounded-full animate-pulse" />
+        <span>[ RUN SYNTHESIS ] COMPLETE</span>
+        <span className="ml-auto opacity-50 text-text-tertiary">T-{formatTimeAgo(doc.created_at)}</span>
+      </div>
+      <div className="font-sans text-sm text-text-primary prose prose-sm prose-invert max-w-none">
+        <ReactMarkdown remarkPlugins={[remarkGfm]}>{doc.content}</ReactMarkdown>
+      </div>
     </div>
   );
 }
 
-/* ── Synthesized Document Card ──────────────────────────────────────── */
-function SynthesizedDocCard({ doc }: { doc: SynthesizedDoc }) {
-  const [expanded, setExpanded] = useState(true);
-  return (
-    <article className="relative border border-accent/30 rounded-xl bg-surface p-5 animate-fade-in overflow-hidden">
-      {/* Gradient accent bar */}
-      <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-accent via-purple-400 to-accent/30 rounded-t-xl" />
-
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-4">
-        <span className="h-8 w-8 rounded-full bg-gradient-to-br from-accent to-purple-500 flex items-center justify-center text-white text-sm shrink-0">
-          📝
-        </span>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-text-primary">Synthesis</span>
-            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-accent/10 text-accent border border-accent/20">
-              AI Generated
-            </span>
-          </div>
-          <p className="text-[11px] text-text-tertiary mt-0.5">
-            {formatTimeAgo(doc.created_at)}
-          </p>
-        </div>
-        <button
-          onClick={() => setExpanded((e) => !e)}
-          className="text-[11px] text-text-tertiary hover:text-text-secondary transition-colors cursor-pointer px-2 py-1 rounded hover:bg-surface-hover"
-        >
-          {expanded ? "Collapse" : "Expand"}
-        </button>
-      </div>
-
-      {/* Content */}
-      {expanded && (
-        <div className="text-sm text-text-primary leading-[1.7] prose prose-sm max-w-none border-t border-border/50 pt-4">
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{doc.content}</ReactMarkdown>
-        </div>
-      )}
-    </article>
-  );
-}
-
-/* ── Generate Document Banner ───────────────────────────────────────── */
 function GenerateDocBanner({
   sessionId,
   onSynthesized,
@@ -285,44 +176,23 @@ function GenerateDocBanner({
   };
 
   return (
-    <div className="flex items-center gap-4 p-4 rounded-xl border border-border bg-surface/60 backdrop-blur-sm animate-fade-in">
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-text-primary">Brainstorming complete</p>
-        <p className="text-xs text-text-tertiary mt-0.5">
-          Generate a refined synthesis document from all agent ideas and debate.
-        </p>
-        {status === "error" && (
-          <p className="text-xs text-red-500 mt-1">{errMsg}</p>
-        )}
+    <div className="mb-10 border border-border p-4 bg-[#141414] font-mono text-[11px] flex items-center justify-between">
+      <div className="text-text-tertiary tracking-widest uppercase">
+        <span className="text-text-secondary mr-2">SYS_MSG:</span>
+        Brainstorming complete. Awaiting extraction.
+        {status === "error" && <span className="block text-red-500 mt-1">{errMsg}</span>}
       </div>
       <button
-        id="generate-document-btn"
         onClick={handleGenerate}
         disabled={status === "loading"}
-        className="shrink-0 flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg bg-accent text-white hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150 cursor-pointer"
+        className="px-4 py-2 bg-accent text-bg font-bold tracking-widest uppercase hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-wait cursor-pointer"
       >
-        {status === "loading" ? (
-          <>
-            <svg className="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-            </svg>
-            Synthesizing…
-          </>
-        ) : (
-          <>
-            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            Generate Document
-          </>
-        )}
+        {status === "loading" ? "EXTRACTING..." : "[ RUN SYNTHESIS ]"}
       </button>
     </div>
   );
 }
 
-/* ── Main Feed ──────────────────────────────────────────────────────── */
 export default function MainFeed({
   feed,
   sortMode,
@@ -333,54 +203,60 @@ export default function MainFeed({
   onSynthesized,
 }: MainFeedProps) {
   const hasPosts = (feed?.count ?? 0) > 0;
-  const showGenerateBanner = hasPosts && !synthDoc && activeSessionId;
+  const hasConsensus = feed?.posts.some(p => p.upvotes >= 4) ?? false;
+  const showGenerateBanner = hasPosts && !synthDoc && activeSessionId && hasConsensus;
 
   return (
-    <main className="flex-1 min-w-0 overflow-y-auto h-screen">
+    <main className="flex-1 min-w-0 overflow-y-auto h-screen bg-[#141414]">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-bg/80 backdrop-blur-md border-b border-border px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-serif font-semibold text-text-primary">
-              Idea Feed
-            </h2>
-            <p className="text-xs text-text-tertiary mt-0.5">
-              {feed ? `${feed.count} ideas` : "Loading…"}
-            </p>
+      <div className="sticky top-0 z-10 bg-[#141414]/90 backdrop-blur-md border-b border-border px-8 py-6 flex items-center justify-between font-mono">
+        <div>
+          <h2 className="text-[12px] font-bold tracking-widest uppercase text-text-primary">
+            Cognitive Stream
+          </h2>
+          <div className="flex gap-2 text-[10px] text-text-tertiary tracking-widest mt-1">
+            <span>{feed ? `TOTAL_POSTS: ${feed.count}` : "LOADING_POSTS..."}</span>
           </div>
-          <SortToggle sortMode={sortMode} setSortMode={setSortMode} />
+        </div>
+
+        {/* Sort Toggle */}
+        <div className="flex gap-2">
+          {["top", "newest"].map((m) => (
+            <button
+              key={m}
+              onClick={() => setSortMode(m as SortMode)}
+              className={`text-[10px] tracking-widest uppercase px-3 py-1.5 border transition-colors cursor-pointer ${sortMode === m
+                ? "border-accent text-accent"
+                : "border-border text-text-tertiary hover:border-text-secondary hover:text-text-primary"
+                }`}
+            >
+              / {m}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Feed Cards */}
-      <div className="px-6 py-5 space-y-4 max-w-[720px] mx-auto">
-        {/* Generate Document Banner */}
+      {/* Feed Content */}
+      <div className="px-8 py-8 max-w-[800px] mx-auto">
         {showGenerateBanner && (
-          <GenerateDocBanner
-            sessionId={activeSessionId}
-            onSynthesized={onSynthesized}
-          />
+          <GenerateDocBanner sessionId={activeSessionId} onSynthesized={onSynthesized} />
         )}
 
-        {/* Synthesized Document Card — pinned at top */}
-        {synthDoc && <SynthesizedDocCard doc={synthDoc} />}
+        {synthDoc && <SynthCard doc={synthDoc} />}
 
         {isLoading ? (
-          [...Array(5)].map((_, i) => <SkeletonCard key={i} />)
+          [...Array(5)].map((_, i) => <SkeletonBlock key={i} />)
         ) : feed?.posts.length ? (
           feed.posts.map((post, idx) => (
-            <IdeaCard key={post.id} post={post} index={idx} />
+            <CognitiveBlock key={post.id} post={post} index={idx} />
           ))
         ) : (
-          <div className="text-center py-20">
-            <div className="text-5xl mb-4">💡</div>
-            <p className="text-sm text-text-tertiary">
-              No ideas yet — agents are warming up…
-            </p>
+          <div className="text-center py-32 font-mono text-[11px] tracking-widest uppercase text-text-tertiary">
+            <span className="inline-block mb-4 animate-bounce">_</span>
+            <p>Awaiting cognitive input...</p>
           </div>
         )}
       </div>
     </main>
   );
 }
-

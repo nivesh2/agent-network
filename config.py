@@ -4,8 +4,8 @@ from dataclasses import dataclass
 @dataclass
 class Config:
     # LLM
-    # model: str = "gemini-2.5-pro"
-    model: str = "gemini-3.1-flash-lite-preview"
+    model: str = "gemini-2.5-pro"
+    # model: str = "gemini-3.1-flash-lite-preview"
     temperature: float = 1.0        # High creativity — diversity by design
 
     # Swarm

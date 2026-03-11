@@ -24,6 +24,7 @@ interface UseSSEResult {
   setActiveSessionId: (id: string | null) => void;
   synthDoc: SynthesizedDoc | null;
   refreshSynthDoc: () => Promise<void>;
+  clearData: () => void;
 }
 
 function sessionParam(sid: string | null): string {
@@ -91,6 +92,13 @@ export function useSSE(): UseSSEResult {
     } catch (err) {
       console.error("Failed to refresh synth doc:", err);
     }
+  }, []);
+
+  const clearData = useCallback(() => {
+    setSession(null);
+    setFeed(null);
+    setActivity(null);
+    setSynthDoc(null);
   }, []);
 
   // ── SSE connection ───────────────────────────────────────────────────────
@@ -322,5 +330,6 @@ export function useSSE(): UseSSEResult {
     setActiveSessionId,
     synthDoc,
     refreshSynthDoc,
+    clearData,
   };
 }
