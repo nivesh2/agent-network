@@ -216,9 +216,18 @@ export function useSSE(): UseSSEResult {
           };
         });
 
-        setSession((prev) =>
-          prev ? { ...prev, total_comments: prev.total_comments + 1 } : prev,
-        );
+        setSession((prev) => {
+          if (!prev) return prev;
+          const agents = prev.agents.includes(comment.agent_id)
+            ? prev.agents
+            : [...prev.agents, comment.agent_id].sort();
+          return {
+            ...prev,
+            total_comments: prev.total_comments + 1,
+            active_agents: agents.length,
+            agents,
+          };
+        });
       });
 
       // ── new_upvote ─────────────────────────────────────────────────────

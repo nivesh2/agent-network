@@ -62,7 +62,7 @@ function CognitiveBlock({ post, index }: { post: Post; index: number }) {
     label = "FACT_CHECK_ROUTINE";
   } else if (isResearchDump) {
     indicatorColor = "bg-purple-500";
-    label = "EXFIL_DATA_DUMP";
+    label = "WEB_SEARCH";
   }
 
   return (

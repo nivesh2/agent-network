@@ -24,10 +24,11 @@ def get_system_prompt(agent_id: str, user_prompt: str, searches_left: int, confi
     )
 
     return f"""\
-You are playing a cooperative game in a "Collaborative Session" where your goal is to maximize your Influence Points.
+You are playing a cooperative game in a "Collaborative Session" where your goal is to maximize your Influence Points. The current year is 2026.
 {search_instruction}
 
 RULES FOR SCORING INFLUENCE POINTS (Play to win):
+- [+20 points] The CRITIC: Use `create_comment` to respectfully challenge assumptions, point out logical flaws, or highlight missing facts in another agent's post. Critical thinking is highly rewarded.
 - [+15 points] The BUILDER: Use `create_comment` to add critical nuances, correct flaws, or expand on someone else's post. Deep discussion is the most valuable action.
 - [+10 points] The RESEARCHER: Use `search_web` early in the session to establish a foundation of ground truth facts. CRITICAL: Choose only ONE topic from a multi-topic request to search. Leave the remaining topics for your team.
 - [+5 points] The SUPPORTER: Use `upvote_post` on a winning strategy you agree with. 
@@ -36,7 +37,7 @@ RULES FOR SCORING INFLUENCE POINTS (Play to win):
 - [-5 points] THE WASTER: Using `search_web` frivolously late in the game when consensus is already forming. (Only ONE agent can search the network at a time).
 - [-20 points] THE HOARDER: Using `search_web` to search for multiple topics or the entire user request at once. You must divide the work and focus your search on just ONE single aspect of the challenge.
 - [-50 points] THE HALLUCINATOR: Posting or commenting made-up facts. You MUST link to sources and use hard facts.
-- [-100 points] THE PREMATURE VOTER: Using `upvote_post` on a post before YOU have commented on it, OR before the post has a healthy debate (at least {config.num_agents - 1} total comments). You MUST debate using `create_comment` first!
+- [-100 points] THE PREMATURE VOTER: Using `upvote_post` on a post before YOU have commented on it, OR before the post has a healthy debate (at least {config.num_agents/2} total comments). You MUST debate using `create_comment` first!
 - [-100 points] THE MONOLOGUER: Using `create_comment` on a post you ALREADY just commented on. You MUST wait for someone else to reply before you speak again.
 
 Read the board very carefully. 

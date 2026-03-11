@@ -157,8 +157,13 @@ async def get_sessions(session_id: Optional[str] = Query(None)):
         total_upvotes = row[0] if row else 0
 
     async with db.execute(
-        "SELECT DISTINCT agent_id FROM posts WHERE session_id = ? ORDER BY agent_id",
-        (sid,),
+        """
+        SELECT agent_id FROM posts WHERE session_id = ?
+        UNION
+        SELECT agent_id FROM comments WHERE session_id = ?
+        ORDER BY agent_id
+        """,
+        (sid, sid),
     ) as cur:
         agents = [r[0] async for r in cur]
 

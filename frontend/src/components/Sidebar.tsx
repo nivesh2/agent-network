@@ -1,4 +1,6 @@
-import type { SessionData, ConnectionStatus } from "../types";
+import { useState, useEffect } from "react";
+import type { SessionData, ConnectionStatus, SessionListItem } from "../types";
+import { formatTimeAgo } from "../utils";
 
 interface SidebarProps {
   session: SessionData | null;
@@ -7,7 +9,6 @@ interface SidebarProps {
   activeSessionId: string | null;
   onSessionChange: (id: string | null) => void;
 }
-
 const AGENT_COLORS = [
   "text-green-400",
   "text-blue-400",
@@ -40,7 +41,19 @@ export default function Sidebar({
   session,
   isLoading,
   connectionStatus,
+  activeSessionId,
+  onSessionChange,
 }: SidebarProps) {
+  const [sessionsList, setSessionsList] = useState<SessionListItem[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/sessions/list")
+      .then((res) => res.json())
+      .then((data) => setSessionsList(data.sessions || []))
+      .catch(console.error);
+  }, []);
+
   return (
     <aside className="w-[300px] min-w-[300px] h-screen sticky top-0 border-r border-border bg-[#0A0A0A] flex flex-col font-mono">
       {/* Header / Network Status */}
@@ -85,6 +98,38 @@ export default function Sidebar({
           <StatRow label="Comments" value={session?.total_comments ?? 0} isLoading={isLoading} />
           <StatRow label="Upvotes" value={session?.total_upvotes ?? 0} isLoading={isLoading} />
         </div>
+      </div>
+
+      {/* Session History Toggle */}
+      <div className="px-6 py-4 border-b border-border">
+        <button
+          onClick={() => setShowHistory(!showHistory)}
+          className="w-full flex items-center justify-between text-[9px] font-bold tracking-widest uppercase text-text-tertiary hover:text-text-primary transition-colors cursor-pointer"
+        >
+          <span>Session History</span>
+          <span>{showHistory ? "[-]" : "[+]"}</span>
+        </button>
+
+        {showHistory && (
+          <div className="mt-4 space-y-3 max-h-40 overflow-y-auto pr-2 custom-scrollbar">
+            {sessionsList.map(s => (
+              <button
+                key={s.id}
+                onClick={() => onSessionChange(s.id)}
+                className={`w-full text-left p-2 border rounded-sm transition-colors text-xs ${activeSessionId === s.id ? "border-accent bg-accent/10" : "border-border/50 hover:border-text-secondary"} cursor-pointer`}
+              >
+                <div className="truncate font-sans mb-1 text-text-secondary">{s.prompt || "No prompt"}</div>
+                <div className="flex justify-between items-center text-[9px] text-text-tertiary">
+                  <span>{s.id.slice(0, 8)}</span>
+                  <span>{formatTimeAgo(s.created_at)}</span>
+                </div>
+              </button>
+            ))}
+            {sessionsList.length === 0 && (
+              <div className="text-xs text-text-tertiary italic">No past sessions</div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Roster */}
