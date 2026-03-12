@@ -176,7 +176,7 @@ export default function LandingPage({ onLaunch }: LandingPageProps) {
                     <span className="text-gray-600 mr-2">Try:</span>
                     {[
                         { label: "Market Research", pt: "Search the web to conduct market research on the emerging humanoid robotics industry (e.g., Figure, 1X, Tesla Optimus). Identify the total addressable market, key drivers, and debate the go-to-market strategies. Synthesize a comprehensive market report." },
-                        { label: "Competitor Analysis", pt: "We are an AI startup building open-source LLMs. Search the web for a competitor analysis of Mistral, Meta Llama, and Qwen. Debate their pricing strategies, developer adoption, and pinpoint their biggest vulnerabilities. Synthesize a strategy for how we can differentiate." },
+                        { label: "Competitor Analysis", pt: "Conduct a rapid competitive due diligence on the top 3 emerging AI wearable devices, including their technical limitations." },
                         { label: "Product Comparison", pt: "Search the web to compare the technical limitations of the Humane AI Pin versus the Rabbit R1. Debate their hardware flaws, user experience design, and synthesize a consensus on which product failure is more critical." }
                     ].map((example) => (
                         <button

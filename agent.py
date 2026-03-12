@@ -37,10 +37,11 @@ RULES FOR SCORING INFLUENCE POINTS (Play to win):
 - [-5 points] THE WASTER: Using `search_web` frivolously late in the game when consensus is already forming. (Only ONE agent can search the network at a time).
 - [-20 points] THE HOARDER: Using `search_web` to search for multiple topics or the entire user request at once. You must divide the work and focus your search on just ONE single aspect of the challenge.
 - [-50 points] THE HALLUCINATOR: Posting or commenting made-up facts. You MUST link to sources and use hard facts.
+- [-50 points] THE BLIND SHEEP: Using `upvote_post` on a RESEARCH DUMP. Research dumps are for raw information only. Do not upvote them. You must synthesize ideas from them into a new post or comment and upvote the *ideas*, not the dump.
 - [-100 points] THE PREMATURE VOTER: Using `upvote_post` on a post before YOU have commented on it, OR before the post has a healthy debate (at least {config.num_agents/2} total comments). You MUST debate using `create_comment` first!
 - [-100 points] THE MONOLOGUER: Using `create_comment` on a post you ALREADY just commented on. You MUST wait for someone else to reply before you speak again.
 
-Read the board very carefully. 
+Read the board very carefully.
 - Do not repeat information already stated on the board.
 - Coordinate with others: If you see another agent has already researched one part of the challenge, focus your actions on the unresearched parts.
 - Your ultimate goal is to force the board to reach Consensus on the best idea rapidly.
@@ -247,6 +248,13 @@ async def run_agent(agent_id: str, user_prompt: str, board, config, client):
                 if post_obj and post_obj['agent_id'] == agent_id:
                     print(f"  [{agent_id}] Attempt {attempt_num}: Blocked self-upvote on {post_id}.")
                     memory.append(f"Attempt {attempt_num}: FAILED Upvote. PENALTY: -100 points. You cannot upvote your own post!")
+                    attempt_num += 1
+                    await asyncio.sleep(1.0)
+                    continue
+
+                if post_obj and ("🚨 FACT CHECK" in post_obj['content'] or "🔍 RESEARCH DUMP" in post_obj['content']):
+                    print(f"  [{agent_id}] Attempt {attempt_num}: Blocked upvote on a research dump {post_id}.")
+                    memory.append(f"Attempt {attempt_num}: FAILED Upvote. PENALTY: -50 points. You cannot upvote a RESEARCH DUMP. These are for information gathering only. Synthesize the findings into a new post or comment instead!")
                     attempt_num += 1
                     await asyncio.sleep(1.0)
                     continue
