@@ -1,23 +1,46 @@
 # 🧠 Agent Network
 
-A non-hierarchical swarm of AI agents that collaboratively brainstorm creative concepts through social-network-style interaction. **No coordinator. No roles. No hierarchy.** Ideas emerge, get debated, refined, and ranked through collective intelligence.
+A non-hierarchical swarm of AI agents that collaborate through a **gamified scoring system** and shared board. **No orchestrator. No fixed roles.** Identical agents coordinate themselves through incentives, not hardcoded pipelines.
 
-Built for the hackathon. Ships fast, demos well.
+Built at **Epiminds Hackathon** — an agent swarm hackathon. Collaboration through incentives, not orchestration.
 
 ---
 
 ## How It Works
 
 ```
-5 identical agents → shared SQLite board → emergent creative output
+identical agents → shared board → gamified scoring → emergent collaboration
 ```
 
 Each agent independently:
-1. **Reads** a mixed feed of the newest and top-voted posts
-2. **Thinks** about what's good, missing, or worth challenging
-3. **Acts** — posts a new idea, comments on an existing one, or upvotes
+1. **Reads** the shared board (mixed feed of newest and top-voted posts)
+2. **Thinks** about what's needed — research, critique, or build
+3. **Acts** — posts, comments, upvotes, searches the web, or waits
 
-No agent knows what another is doing — they only see the board. Diversity emerges from LLM stochasticity, different feed slices, and diverging context.
+**Key insight:** Agents don't have fixed roles. They *choose* what to do based on what the board needs, driven by a gamified scoring system.
+
+---
+
+## Gamified Scoring System
+
+Agents earn **Influence Points** based on their actions:
+
+| Role | Action | Points |
+|------|--------|--------|
+| **THE CRITIC** | Challenge assumptions, point out flaws | +20 |
+| **THE BUILDER** | Add nuance, correct flaws, expand ideas | +15 |
+| **THE RESEARCHER** | Search web early for factual foundation | +10 |
+| **THE SUPPORTER** | Upvote a winning strategy | +5 |
+| **THE OBSERVER** | Wait when board lacks direction | 0 |
+| **THE LONE WOLF** | Post new idea without referencing others | 0 |
+| **THE WASTER** | Search frivolously late in the game | -5 |
+| **THE HOARDER** | Search multiple topics at once | -20 |
+| **THE HALLUCINATOR** | Post made-up facts | -50 |
+| **THE BLIND SHEEP** | Upvote a research dump | -50 |
+| **THE PREMATURE VOTER** | Upvote before debating | -100 |
+| **THE MONOLOGUER** | Double-comment without waiting for reply | -100 |
+
+**Result:** Same model. Different behavior. Collaboration emerges naturally.
 
 ---
 
@@ -26,7 +49,7 @@ No agent knows what another is doing — they only see the board. Diversity emer
 ```
 agent-network/
 ├── main.py          # Entry point — spawns agents, collects results
-├── agent.py         # Single agent (ReAct loop + Gemini function-calling)
+├── agent.py         # Agent loop + gamified system prompt (Influence Points)
 ├── board.py         # Shared board (async SQLite with WAL mode)
 ├── feed.py          # Feed algorithm (explore/exploit + seen-post tracking)
 ├── config.py        # All tunables in one place
@@ -176,10 +199,11 @@ Edit `config.py` to tune the swarm:
 
 | Moment | What to say |
 |--------|-------------|
-| Launch | *"5 identical agents, one shared board, no coordinator"* |
-| Watch comments appear | *"Agent-4 just challenged Agent-1's concept. Nobody told it to."* |
-| Kill a terminal mid-run | *"Watch — the system doesn't notice. The swarm just continues."* |
-| Show final results | *"These concepts were co-authored by debate — no single agent wrote the winner."* |
+| Launch | *"Same model. Same prompt. Four agents. No orchestrator."* |
+| One agent searches | *"Watch — one agent researches. Others see it on the board and don't duplicate."* |
+| Upvote blocked | *"Agent tried to upvote too early. System forced them to comment first. That's a -100 penalty."* |
+| Debate emerges | *"Now there's debate. Agents are critiquing, building, challenging. Nobody told them to."* |
+| Show final consensus | *"The board converged. Agents reached consensus because the scoring system rewards it."* |
 
 ---
 
@@ -202,7 +226,7 @@ Gemini 2.5 Flash (~$0.15/1M input, ~$0.60/1M output):
 |-----------|--------|-----|
 | Language | Python 3.11+ | Fast prototyping |
 | LLM | Gemini 2.5 Flash (Vertex AI) | Native function-calling, GCP credits |
-| Agent Loop | Raw ReAct (no framework) | No hidden orchestration |
+| Agent Loop | Raw ReAct + Gamified Prompt | Incentives drive behavior |
 | Shared Board | SQLite + WAL mode (`aiosqlite`) | Zero setup, async-safe |
 | Concurrency | `asyncio.gather` | True parallel agents |
 | API Layer | FastAPI | Serves DB data cleanly for React |
